@@ -1,94 +1,171 @@
 import streamlit as st
-import pandas as pd
 import matplotlib.pyplot as plt
+from PyPDF2 import PdfReader
 
 # PAGE CONFIG
 st.set_page_config(
-    page_title="Data Analytics Dashboard",
+    page_title="AI Resume Analyzer",
     layout="wide"
 )
 
 # TITLE
-st.title("📊 Data Analytics Dashboard")
-st.caption("Interactive Business Intelligence Dashboard")
+st.markdown("""
+# 💬 AI Resume Analyzer
+### NLP-Based Resume Skill Scanner
+Upload a resume and receive AI-style feedback.
+""")
 
 st.markdown("---")
 
+# REQUIRED SKILLS
+required_skills = [
+    "python",
+    "machine learning",
+    "data analysis",
+    "streamlit",
+    "pandas",
+    "scikit-learn",
+    "sql",
+    "deep learning"
+]
+
 # FILE UPLOAD
 uploaded_file = st.file_uploader(
-    "Upload CSV File",
-    type=["csv"]
+    "Upload Resume",
+    type=["txt", "pdf"]
 )
 
+resume_text = ""
+
+# READ TXT
 if uploaded_file is not None:
 
-    # READ DATA
-    df = pd.read_csv(uploaded_file)
+    if uploaded_file.type == "text/plain":
+        resume_text = uploaded_file.read().decode("utf-8")
 
-    # DATA PREVIEW
-    st.subheader("📂 Dataset Preview")
-    st.dataframe(df.head())
+    # READ PDF
+    elif uploaded_file.type == "application/pdf":
 
-    st.markdown("---")
+        pdf_reader = PdfReader(uploaded_file)
 
-    # KPI SECTION
-    col1, col2, col3 = st.columns(3)
+        for page in pdf_reader.pages:
+            resume_text += page.extract_text()
 
-    col1.metric("Rows", df.shape[0])
-    col2.metric("Columns", df.shape[1])
+    resume_text = resume_text.lower()
 
-    numeric_cols = df.select_dtypes(include='number').columns
+    # DISPLAY TEXT
+    st.subheader("📄 Resume Content")
 
-    if len(numeric_cols) > 0:
-        total = df[numeric_cols[0]].sum()
-        col3.metric(f"Total {numeric_cols[0]}", f"{total:,.2f}")
-
-    st.markdown("---")
-
-    # COLUMN SELECTION
-    st.subheader("📈 Visualization")
-
-    x_axis = st.selectbox("Select X-axis", df.columns)
-
-    y_axis = st.selectbox(
-        "Select Y-axis",
-        numeric_cols
+    st.text_area(
+        "Resume Text",
+        resume_text,
+        height=250
     )
 
+    st.markdown("---")
+
+    # SKILL ANALYSIS
+    matched_skills = []
+    missing_skills = []
+
+    for skill in required_skills:
+
+        if skill in resume_text:
+            matched_skills.append(skill)
+
+        else:
+            missing_skills.append(skill)
+
+    # SCORE
+    score = int(
+        (len(matched_skills) / len(required_skills)) * 100
+    )
+
+    st.subheader("📊 Resume Match Score")
+
+    st.metric(
+        "ATS Match Score",
+        f"{score}%"
+    )
+
+    st.progress(score / 100)
+
+    st.markdown("---")
+
+    # SKILLS
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.subheader("✅ Matched Skills")
+
+        for skill in matched_skills:
+            st.success(skill)
+
+    with col2:
+        st.subheader("❌ Missing Skills")
+
+        for skill in missing_skills:
+            st.error(skill)
+
+    st.markdown("---")
+
     # CHART
-    fig, ax = plt.subplots(figsize=(10, 5))
+    st.subheader("📈 Skill Analysis")
 
-    ax.bar(df[x_axis].astype(str), df[y_axis])
+    labels = ["Matched", "Missing"]
 
-    plt.xticks(rotation=45)
+    values = [
+        len(matched_skills),
+        len(missing_skills)
+    ]
 
-    ax.set_xlabel(x_axis)
-    ax.set_ylabel(y_axis)
+    fig, ax = plt.subplots()
+
+    ax.bar(labels, values)
 
     st.pyplot(fig)
 
     st.markdown("---")
 
-    # FILTERING
-    st.subheader("🔎 Filter Data")
+    # AI FEEDBACK
+    st.subheader("🤖 AI Career Feedback")
 
-    filter_column = st.selectbox(
-        "Select column to filter",
-        df.columns
-    )
+    if score >= 80:
 
-    unique_values = df[filter_column].unique()
+        st.success("""
+Strong technical profile detected.
 
-    selected_value = st.selectbox(
-        "Select value",
-        unique_values
-    )
+Your resume demonstrates a solid alignment with
+modern AI and data-focused roles.
+Continue building deployed portfolio projects
+and emphasize measurable achievements.
+""")
 
-    filtered_df = df[
-        df[filter_column] == selected_value
-    ]
+    elif score >= 50:
 
-    st.dataframe(filtered_df)
+        st.warning("""
+Your resume shows promising technical skills,
+but additional optimization is recommended.
+
+Consider improving:
+- SQL
+- deployment experience
+- machine learning projects
+- business impact descriptions
+""")
+
+    else:
+
+        st.error("""
+Your resume currently lacks several important
+technical keywords used in AI/ML hiring.
+
+Recommended next steps:
+- add Python projects
+- include deployed applications
+- strengthen machine learning skills
+- add GitHub portfolio links
+""")
 
 else:
-    st.info("👆 Upload a CSV file to begin analysis")
+    st.info("👆 Upload a TXT or PDF resume to begin analysis")
